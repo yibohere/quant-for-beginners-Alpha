@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>总体方差动态演示 · Quant for Beginners</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0f14; --surface: #151a22; --surface2: #1c2330; --border: #2a3344;
+      --text: #e8ecf4; --muted: #8b95a8; --accent: #3d9cf5; --green: #2dd4a8; --red: #f07178;
+      --radius: 10px; --font: "IBM Plex Sans", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.5; }
+    .app { height: 100vh; display: grid; grid-template-rows: auto 1fr; gap: 10px; padding: 12px 14px; max-width: 1400px; margin: 0 auto; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .topbar h1 { font-size: 1.05rem; font-weight: 600; }
+    .topbar .eq { font-family: var(--mono); font-size: 0.78rem; color: var(--accent); margin-left: 12px; }
+    .topbar .pill { font-size: 0.76rem; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; }
+    .layout { display: grid; grid-template-columns: 330px 1fr; gap: 12px; min-height: 0; }
+    @media (max-width: 980px) { html, body { overflow: auto; height: auto; } .app { height: auto; min-height: 100vh; } .layout { grid-template-columns: 1fr; } }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .left { display: grid; grid-template-rows: 1fr auto auto; gap: 10px; min-height: 0; }
+    .section-title { padding: 8px 12px; font-size: 0.72rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); }
+    .formula { padding: 12px; font-family: var(--mono); font-size: 0.76rem; line-height: 1.72; white-space: pre-line; overflow-y: auto; }
+    .formula .hl { color: var(--accent); }
+    .formula .result { font-size: 1.02rem; font-weight: 500; margin-top: 6px; }
+    .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 0 12px 12px; }
+    .stat { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px; text-align: center; }
+    .stat label { display: block; font-size: 0.62rem; color: var(--muted); text-transform: uppercase; margin-bottom: 3px; }
+    .stat span { font-family: var(--mono); font-size: 0.86rem; font-weight: 500; }
+    .controls { padding: 10px 12px; }
+    .btn-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+    .btn { font-family: var(--font); font-size: 0.76rem; font-weight: 500; padding: 7px 4px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; }
+    .btn:hover { border-color: var(--accent); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #0a0e12; }
+    .speed { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--muted); }
+    .speed input { flex: 1; accent-color: var(--accent); }
+    .progress { height: 3px; background: var(--border); margin-top: 10px; }
+    .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.08s linear; }
+    .legend { padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 10px 14px; font-size: 0.7rem; color: var(--muted); }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .sw { width: 10px; height: 10px; border-radius: 50%; }
+    .sw.line { width: 14px; height: 3px; border-radius: 2px; }
+    .right { display: grid; grid-template-rows: 1fr 1fr; gap: 10px; min-height: 0; }
+    .chart { display: flex; flex-direction: column; min-height: 0; }
+    .chart-wrap { flex: 1; min-height: 0; }
+    canvas { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div><h1>总体方差动态演示<span class="eq">s² = (1/N) · Σ(xⱼ-x̄)²</span></h1></div>
+      <div class="pill" id="stepPill">第 1 / 251 个样本</div>
+    </header>
+    <div class="layout">
+      <aside class="left">
+        <div class="card">
+          <div class="section-title">逐步代入公式 (2-1a)</div>
+          <div class="formula" id="formulaBox">▶ 点击「播放」开始演示</div>
+          <div class="stats">
+            <div class="stat"><label>x̄（均值）</label><span id="meanVal">—</span></div>
+            <div class="stat"><label>当前 xⱼ</label><span id="xjVal">—</span></div>
+            <div class="stat"><label>Σ(xⱼ-x̄)²</label><span id="sumSqVal">—</span></div>
+            <div class="stat"><label>s²（总体）</label><span id="varVal">—</span></div>
+          </div>
+        </div>
+        <div class="card controls">
+          <div class="btn-row">
+            <button class="btn primary" id="btnPlay">▶ 播放</button>
+            <button class="btn" id="btnPause">⏸ 暂停</button>
+            <button class="btn" id="btnStep">⏭ 单步</button>
+            <button class="btn" id="btnReset">↺ 重置</button>
+          </div>
+          <div class="speed"><span>速度</span><input type="range" id="speed" min="1" max="10" value="9" /></div>
+          <div class="progress"><div class="progress-fill" id="progress"></div></div>
+        </div>
+        <div class="card legend">
+          <div class="legend-item"><span class="sw" style="background:#4da3ff"></span> 当前 xⱼ</div>
+          <div class="legend-item"><span class="sw line" style="background:#f5a623"></span> 均值 x̄</div>
+          <div class="legend-item"><span class="sw line" style="background:var(--accent)"></span> 偏差平方柱</div>
+        </div>
+      </aside>
+      <main class="right">
+        <div class="card chart">
+          <div class="section-title">对数收益率 xⱼ 与均值 x̄</div>
+          <div class="chart-wrap" id="wrapX"><canvas id="canvasX"></canvas></div>
+        </div>
+        <div class="card chart">
+          <div class="section-title">偏差平方 (xⱼ-x̄)² 累加过程</div>
+          <div class="chart-wrap" id="wrapSq"><canvas id="canvasSq"></canvas></div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script>
+    // 251 个对数收益率 xⱼ（约一年，ln(Pⱼ/Pⱼ₋₁)）
+    const LOG_RETURNS = [
+      -0.004566, -0.016261, 0.004302, 0.000452, 0.017849, 0.004151, -0.009377, -0.018738,
+      0.007921, -0.003217, -0.000283, -0.006752, -0.02362, 0.011419, 0.006377, 0.003259,
+      0.008526, -0.01448, 0.023943, -0.003201, 0.004881, 0.009525, -0.032625, 0.020466,
+      0.00129, -0.019982, -0.003723, 0.032799, -0.00228, -0.016614, -0.001416, 0.005257,
+      -0.006902, -0.006664, 0.014693, 0.010532, 0.000557, -0.000223, 0.002337, -0.004624,
+      0.000502, 0.00223, 0.018154, -0.013487, 0.011791, 0.020439, -0.009707, 0.002814,
+      0.003614, -0.001347, -0.005135, -0.011446, -0.026326, 0.007513, -0.039478, 0.006718,
+      0.011477, -0.011824, 0.007306, 0.009129, 0.009159, -0.004739, 0.004795, 0.003034,
+      -0.00913, -0.005735, 0.008336, -0.00589, 0.006003, 0.001693, -0.002201, 0.001975,
+      0.004669, 0.001514, 0.002798, 0.008845, -0.001386, 0.003212, -0.00166, 0.005522,
+      -0.000716, 0.009216, 0.013936, -0.016178, 0.017308, 0.014843, -0.008729, 0.029032,
+      0.003473, 0.006962, 0.020902, -0.006868, -0.01275, -0.003239, 0.002725, 0.005378,
+      0.009101, 0.020837, -0.008713, -0.013999, 0.004402, 0.000353, -0.000252, -0.015876,
+      0.008681, 0.008456, -0.002777, 0.032677, -0.013697, 0.012816, -0.006338, -0.009707,
+      -0.013529, 0.012931, -0.006695, -0.005227, -0.004242, 0.005753, 0.014686, 0.004897,
+      0.015958, 0.017141, -0.004066, 0.005116, 0.011851, 0.010174, 0.002795, 0.020079,
+      -0.001323, -0.001005, 0.005923, -0.000364, -0.01037, 0.014678, 0.00217, 0.013366,
+      0.016, -0.012664, 0.008666, -0.003749, 0.005201, 0.009537, -0.006421, -0.009555,
+      0.00221, -0.001546, -0.003987, 0.006151, 0.000309, 0.007907, 0.009754, -0.006085,
+      -0.004106, 0.005762, 0.004906, 0.004106, 0.019182, 0.019941, -0.017701, 0.00253,
+      -0.000674, -0.00974, -0.017254, -0.024676, -0.001732, -0.003875, 0.004097, -0.002136,
+      0.01028, 0.014529, -0.007107, -0.005397, 0.016622, -0.00904, 0.021168, 0.025366,
+      -0.002963, 0.00238, 0.005904, -0.013816, 0.025275, -0.024602, 0.000504, -0.003238,
+      0.024669, 0.002093, -0.01633, 0.007309, 0.004747, 0.016338, -0.02001, 0.012773,
+      0.013779, -0.006906, -0.010184, -0.006902, 0.013676, 0.010558, -0.004881, 0.011379,
+      0.016141, -0.002876, 0.014881, -0.004051, -0.003519, -0.000862, 0.004264, -0.024297,
+      -0.012111, -0.027829, 0.008207, 0.015687, 0.017923, -0.023179, 0.001225, -0.013722,
+      -0.015718, -0.006323, -0.015126, 0.024806, -0.01732, -0.0114, -0.001596, 0.001165,
+      0.000776, -0.013884, 0.003358, 0.003738, 0.008897, -0.001635, 0.011816, -0.016954,
+      0.01606, 0.010635, 0.004374, 0.006066, 0.012106, 0.010657, -0.012142, 0.013731,
+      0.00313, 0.014383, 0.005346, -0.011364, -0.012676, 0.005649, 0.013525, -0.017504,
+      -0.003587, 0.013103, -0.003836,
+    ];
+    const N = LOG_RETURNS.length;
+
+    function popStats(k) {
+      const slice = LOG_RETURNS.slice(0, k + 1);
+      const n = slice.length;
+      const mean = slice.reduce((a, b) => a + b, 0) / n;
+      const sq = slice.map(x => (x - mean) * (x - mean));
+      const sumSq = sq.reduce((a, b) => a + b, 0);
+      const varPop = sumSq / n;
+      return { slice, mean, sq, sumSq, varPop, n };
+    }
+
+    let frame = 0, playing = false, timer = null;
+    const cX = document.getElementById('canvasX');
+    const cSq = document.getElementById('canvasSq');
+    const xCtx = cX.getContext('2d');
+    const sCtx = cSq.getContext('2d');
+    const formulaBox = document.getElementById('formulaBox');
+    const stepPill = document.getElementById('stepPill');
+    const progress = document.getElementById('progress');
+    const meanVal = document.getElementById('meanVal');
+    const xjVal = document.getElementById('xjVal');
+    const sumSqVal = document.getElementById('sumSqVal');
+    const varVal = document.getElementById('varVal');
+
+    function pad() { return { left: 48, right: 14, top: 14, bottom: 30 }; }
+    function xPos(i, span, p, w) { return p.left + (i / Math.max(1, span - 1)) * (w - p.left - p.right); }
+
+    function resize() {
+      [['wrapX', cX, xCtx], ['wrapSq', cSq, sCtx]].forEach(([id, canvas, ctx]) => {
+        const wrap = document.getElementById(id);
+        const dpr = window.devicePixelRatio || 1;
+        const w = wrap.clientWidth, h = wrap.clientHeight;
+        canvas.width = Math.max(1, w * dpr);
+        canvas.height = Math.max(1, h * dpr);
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      });
+      draw(frame);
+    }
+
+    function drawGrid(ctx, w, h, p) {
+      ctx.strokeStyle = '#232a38';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = p.top + (i / 4) * (h - p.top - p.bottom);
+        ctx.beginPath(); ctx.moveTo(p.left, y); ctx.lineTo(w - p.right, y); ctx.stroke();
+      }
+    }
+
+    function drawReturns(k) {
+      const w = cX.width / (window.devicePixelRatio || 1);
+      const h = cX.height / (window.devicePixelRatio || 1);
+      const p = pad();
+      const { slice, mean } = popStats(k);
+      const span = slice.length;
+      xCtx.clearRect(0, 0, w, h);
+      drawGrid(xCtx, w, h, p);
+      const minV = Math.min(-0.04, ...slice, mean) * 1.08;
+      const maxV = Math.max(0.035, ...slice, mean) * 1.08;
+      const y = v => p.top + (1 - (v - minV) / (maxV - minV)) * (h - p.top - p.bottom);
+      const yMean = y(mean);
+      xCtx.strokeStyle = '#f5a623';
+      xCtx.lineWidth = 1.8;
+      xCtx.beginPath(); xCtx.moveTo(p.left, yMean); xCtx.lineTo(w - p.right, yMean); xCtx.stroke();
+      xCtx.fillStyle = '#f5a623';
+      xCtx.font = '10px IBM Plex Sans, sans-serif';
+      xCtx.fillText(`x̄=${(mean * 100).toFixed(2)}%`, p.left + 4, yMean - 6);
+      xCtx.strokeStyle = '#4da3ff';
+      xCtx.lineWidth = 1.6;
+      xCtx.beginPath();
+      for (let i = 0; i <= k; i++) {
+        const x = xPos(i, span, p, w), yy = y(LOG_RETURNS[i]);
+        i === 0 ? xCtx.moveTo(x, yy) : xCtx.lineTo(x, yy);
+      }
+      xCtx.stroke();
+      const x = xPos(k, span, p, w), yk = y(LOG_RETURNS[k]);
+      xCtx.fillStyle = '#4da3ff';
+      xCtx.beginPath(); xCtx.arc(x, yk, 5, 0, Math.PI * 2); xCtx.fill();
+      xCtx.strokeStyle = 'rgba(77,163,255,0.35)';
+      xCtx.setLineDash([3, 3]);
+      xCtx.beginPath(); xCtx.moveTo(x, yMean); xCtx.lineTo(x, yk); xCtx.stroke();
+      xCtx.setLineDash([]);
+    }
+
+    function drawSquares(k) {
+      const w = cSq.width / (window.devicePixelRatio || 1);
+      const h = cSq.height / (window.devicePixelRatio || 1);
+      const p = pad();
+      const { sq, sumSq, n } = popStats(k);
+      sCtx.clearRect(0, 0, w, h);
+      drawGrid(sCtx, w, h, p);
+      const maxSq = Math.max(0.0015, ...sq) * 1.1;
+      const y = v => p.top + (1 - v / maxSq) * (h - p.top - p.bottom);
+      const y0 = y(0);
+      const barW = Math.max(2, Math.min(10, (w - p.left - p.right) / n * 0.72));
+      for (let i = 0; i <= k; i++) {
+        const x = xPos(i, n, p, w), yy = y(sq[i]);
+        sCtx.fillStyle = i === k ? '#4da3ff' : 'rgba(61,156,245,0.55)';
+        sCtx.fillRect(x - barW / 2, yy, barW, Math.max(1, y0 - yy));
+      }
+      sCtx.fillStyle = '#8b95a8';
+      sCtx.font = '10px IBM Plex Sans, sans-serif';
+      sCtx.fillText(`Σ(xⱼ-x̄)² = ${sumSq.toFixed(6)}`, p.left + 2, p.top + 12);
+    }
+
+    function updateUI(k) {
+      const { mean, sumSq, varPop, n } = popStats(k);
+      const xj = LOG_RETURNS[k];
+      const dev = xj - mean;
+      stepPill.textContent = `第 ${n} / ${N} 个样本`;
+      progress.style.width = `${(n / N) * 100}%`;
+      meanVal.textContent = `${(mean * 100).toFixed(2)}%`;
+      xjVal.textContent = `${(xj * 100).toFixed(2)}%`;
+      sumSqVal.textContent = sumSq.toFixed(6);
+      varVal.textContent = varPop.toExponential(3);
+      formulaBox.innerHTML =
+        `当前样本：j = <span class="hl">${n}</span>\n` +
+        `xⱼ = ${(xj * 100).toFixed(2)}% ,  x̄ = ${(mean * 100).toFixed(2)}%\n` +
+        `(xⱼ-x̄)² = (${xj.toFixed(4)} - ${mean.toFixed(4)})² = ${(dev * dev).toFixed(6)}\n` +
+        `Σ(xⱼ-x̄)²(前${n}项) = ${sumSq.toFixed(6)}\n` +
+        `<span class="result">s² = ${sumSq.toFixed(6)} / ${n} = ${varPop.toExponential(3)}</span>\n` +
+        `<span class="hl">（注意：除以 N，不是 N-1）</span>`;
+    }
+
+    function draw(k) { frame = k; drawReturns(k); drawSquares(k); updateUI(k); }
+    function step() { if (frame < N - 1) draw(frame + 1); else pause(); }
+    function play() { if (frame >= N - 1) draw(0); playing = true; document.getElementById('btnPlay').textContent = '▶ 播放中'; schedule(); }
+    function pause() { playing = false; clearTimeout(timer); document.getElementById('btnPlay').textContent = '▶ 播放'; }
+    function schedule() {
+      clearTimeout(timer); if (!playing) return;
+      const ms = 1150 - Number(document.getElementById('speed').value) * 95;
+      timer = setTimeout(() => { if (frame < N - 1) { draw(frame + 1); schedule(); } else pause(); }, ms);
+    }
+    function reset() { pause(); draw(0); }
+
+    document.getElementById('btnPlay').addEventListener('click', () => playing ? pause() : play());
+    document.getElementById('btnPause').addEventListener('click', pause);
+    document.getElementById('btnStep').addEventListener('click', () => { pause(); step(); });
+    document.getElementById('btnReset').addEventListener('click', reset);
+    document.getElementById('speed').addEventListener('input', () => { if (playing) schedule(); });
+    window.addEventListener('resize', resize);
+    resize(); draw(0);
+  </script>
+</body>
+</html>

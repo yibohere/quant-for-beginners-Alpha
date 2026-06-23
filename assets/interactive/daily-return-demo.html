@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>日收益率动态演示 · Quant for Beginners</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0f14;
+      --surface: #151a22;
+      --surface2: #1c2330;
+      --border: #2a3344;
+      --text: #e8ecf4;
+      --muted: #8b95a8;
+      --accent: #3d9cf5;
+      --orange: #f5a623;
+      --blue: #4da3ff;
+      --green: #2dd4a8;
+      --red: #f07178;
+      --radius: 10px;
+      --font: "IBM Plex Sans", system-ui, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 10px;
+      padding: 12px 14px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .topbar h1 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .topbar .eq {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      color: var(--accent);
+      margin-left: 12px;
+    }
+
+    .topbar .day-pill {
+      font-size: 0.78rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 12px;
+      white-space: nowrap;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    @media (max-width: 900px) {
+      html, body { overflow: auto; height: auto; }
+      .app { height: auto; min-height: 100vh; }
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .side {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .calc-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .calc-head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+    }
+
+    .calc-body {
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 0.76rem;
+      line-height: 1.7;
+      white-space: pre-line;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .calc-body .hl { color: var(--accent); }
+    .calc-body .result { font-size: 1.05rem; font-weight: 500; margin-top: 6px; }
+    .calc-body .result.pos { color: var(--green); }
+    .calc-body .result.neg { color: var(--red); }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 0 12px 12px;
+    }
+
+    .stat {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+    }
+
+    .stat label {
+      display: block;
+      font-size: 0.62rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 3px;
+    }
+
+    .stat span {
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      font-weight: 500;
+    }
+
+    .stat span.pos { color: var(--green); }
+    .stat span.neg { color: var(--red); }
+
+    .controls {
+      padding: 10px 12px;
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .btn {
+      font-family: var(--font);
+      font-size: 0.76rem;
+      font-weight: 500;
+      padding: 7px 4px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .btn:hover { border-color: var(--accent); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #0a0e12; }
+
+    .speed-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .speed-row input { flex: 1; accent-color: var(--accent); }
+
+    .progress {
+      height: 3px;
+      background: var(--border);
+      margin-top: 10px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.08s linear;
+    }
+
+    .legend {
+      padding: 8px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .swatch { width: 10px; height: 10px; border-radius: 50%; }
+    .swatch.line { width: 14px; height: 3px; border-radius: 2px; }
+
+    .charts {
+      display: grid;
+      grid-template-rows: 1.2fr 0.85fr;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .chart-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .chart-title {
+      padding: 8px 12px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .chart-wrap {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <h1>日收益率动态演示<span class="eq">rₜ = (Pₜ − Pₜ₋₁) / Pₜ₋₁</span></h1>
+      </div>
+      <div class="day-pill" id="dayBadge">第 1 / 252 个交易日</div>
+    </header>
+
+    <div class="layout">
+      <aside class="side">
+        <div class="card calc-panel">
+          <div class="calc-head">逐步代入公式</div>
+          <div class="calc-body" id="formulaBox">▶ 点击「播放」开始演示</div>
+          <div class="stat-row">
+            <div class="stat"><label>Pₜ₋₁</label><span id="statPrev">—</span></div>
+            <div class="stat"><label>Pₜ</label><span id="statCurr">—</span></div>
+            <div class="stat"><label>rₜ</label><span id="statRet">—</span></div>
+          </div>
+        </div>
+
+        <div class="card controls">
+          <div class="btn-row">
+            <button class="btn primary" id="btnPlay">▶ 播放</button>
+            <button class="btn" id="btnPause">⏸ 暂停</button>
+            <button class="btn" id="btnStep">⏭ 单步</button>
+            <button class="btn" id="btnReset">↺ 重置</button>
+          </div>
+          <div class="speed-row">
+            <span>速度</span>
+            <input type="range" id="speed" min="1" max="10" value="8" />
+          </div>
+          <div class="progress"><div class="progress-fill" id="progress"></div></div>
+        </div>
+
+        <div class="card legend">
+          <div class="legend-item"><span class="swatch line" style="background:var(--blue)"></span> 已出现价格</div>
+          <div class="legend-item"><span class="swatch" style="background:var(--orange)"></span> Pₜ₋₁</div>
+          <div class="legend-item"><span class="swatch" style="background:var(--blue)"></span> Pₜ</div>
+          <div class="legend-item"><span class="swatch line" style="background:var(--green)"></span> 涨</div>
+          <div class="legend-item"><span class="swatch line" style="background:var(--red)"></span> 跌</div>
+        </div>
+      </aside>
+
+      <main class="charts">
+        <div class="card chart-card">
+          <div class="chart-title">收盘价走势 · 高亮昨天 → 今天</div>
+          <div class="chart-wrap" id="wrapPrice">
+            <canvas id="canvasPrice"></canvas>
+          </div>
+        </div>
+        <div class="card chart-card">
+          <div class="chart-title">日收益率柱状图（逐日累加）</div>
+          <div class="chart-wrap" id="wrapReturn">
+            <canvas id="canvasReturn"></canvas>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const PRICES = [
+      180.0, 179.18, 176.29, 177.05, 177.13, 180.32,
+      181.07, 179.38, 176.05, 177.45, 176.88, 176.83,
+      175.64, 171.54, 173.51, 174.62, 175.19, 176.69,
+      174.15, 178.37, 177.8, 178.67, 180.38, 174.59,
+      178.2, 178.43, 174.9, 174.25, 180.06, 179.65,
+      176.69, 176.44, 177.37, 176.15, 174.98, 177.57,
+      179.45, 179.55, 179.51, 179.93, 179.1, 179.19,
+      179.59, 182.88, 180.43, 182.57, 186.34, 184.54,
+      185.06, 185.73, 185.48, 184.53, 182.43, 177.69,
+      179.03, 172.1, 173.26, 175.26, 173.2, 174.47,
+      176.07, 177.69, 176.85, 177.7, 178.24, 176.62,
+      175.61, 177.08, 176.04, 177.1, 177.4, 177.01,
+      177.36, 178.19, 178.46, 178.96, 180.55, 180.3,
+      180.88, 180.58, 181.58, 181.45, 183.13, 185.7,
+      182.72, 185.91, 188.69, 187.05, 192.56, 193.23,
+      194.58, 198.69, 197.33, 194.83, 194.2, 194.73,
+      195.78, 197.57, 201.73, 199.98, 197.2, 198.07,
+      198.14, 198.09, 194.97, 196.67, 198.34, 197.79,
+      204.36, 201.58, 204.18, 202.89, 200.93, 198.23,
+      200.81, 199.47, 198.43, 197.59, 198.73, 201.67,
+      202.66, 205.92, 209.48, 208.63, 209.7, 212.2,
+      214.37, 214.97, 219.33, 219.04, 218.82, 220.12,
+      220.04, 217.77, 220.99, 221.47, 224.45, 228.07,
+      225.2, 227.16, 226.31, 227.49, 229.67, 228.2,
+      226.03, 226.53, 226.18, 225.28, 226.67, 226.74,
+      228.54, 230.78, 229.38, 228.44, 229.76, 230.89,
+      231.84, 236.33, 241.09, 236.86, 237.46, 237.3,
+      235.0, 230.98, 225.35, 224.96, 224.09, 225.01,
+      224.53, 226.85, 230.17, 228.54, 227.31, 231.12,
+      229.04, 233.94, 239.95, 239.24, 239.81, 241.23,
+      237.92, 244.01, 238.08, 238.2, 237.43, 243.36,
+      243.87, 239.92, 241.68, 242.83, 246.83, 241.94,
+      245.05, 248.45, 246.74, 244.24, 242.56, 245.9,
+      248.51, 247.3, 250.13, 254.2, 253.47, 257.27,
+      256.23, 255.33, 255.11, 256.2, 250.05, 247.04,
+      240.26, 242.24, 246.07, 250.52, 244.78, 245.08,
+      241.74, 237.97, 236.47, 232.92, 238.77, 234.67,
+      232.01, 231.64, 231.91, 232.09, 228.89, 229.66,
+      230.52, 232.58, 232.2, 234.96, 231.01, 234.75,
+      237.26, 238.3, 239.75, 242.67, 245.27, 242.31,
+      245.66, 246.43, 250.0, 251.34, 248.5, 245.37,
+      246.76, 250.12, 245.78, 244.9, 248.13, 247.18,
+    ];
+
+    const START_DATE = new Date(2025, 0, 2); // 约一年起点
+    const n = PRICES.length; // 252 个交易日
+
+    function buildTradingDates(start, count) {
+      const out = [];
+      const d = new Date(start);
+      while (out.length < count) {
+        const wd = d.getDay();
+        if (wd !== 0 && wd !== 6) out.push(new Date(d));
+        d.setDate(d.getDate() + 1);
+      }
+      return out;
+    }
+
+    const dates = buildTradingDates(START_DATE, n);
+    const returns = PRICES.slice(1).map((p, i) => (p - PRICES[i]) / PRICES[i]);
+
+    let frame = 0, playing = false, timer = null;
+
+    const canvasPrice = document.getElementById('canvasPrice');
+    const canvasReturn = document.getElementById('canvasReturn');
+    const ctxP = canvasPrice.getContext('2d');
+    const ctxR = canvasReturn.getContext('2d');
+    const formulaBox = document.getElementById('formulaBox');
+    const dayBadge = document.getElementById('dayBadge');
+    const progress = document.getElementById('progress');
+    const statPrev = document.getElementById('statPrev');
+    const statCurr = document.getElementById('statCurr');
+    const statRet = document.getElementById('statRet');
+
+    function fmtDate(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function pad() {
+      return { left: 56, right: 16, top: 14, bottom: 32 };
+    }
+
+    function resize() {
+      ['wrapPrice', 'wrapReturn'].forEach((id, idx) => {
+        const wrap = document.getElementById(id);
+        const canvas = idx === 0 ? canvasPrice : canvasReturn;
+        const ctx = idx === 0 ? ctxP : ctxR;
+        const dpr = window.devicePixelRatio || 1;
+        const w = wrap.clientWidth;
+        const h = wrap.clientHeight;
+        canvas.width = Math.max(1, w * dpr);
+        canvas.height = Math.max(1, h * dpr);
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      });
+      draw(frame);
+    }
+
+    function priceScale(w, h, t) {
+      const p = pad();
+      const visible = PRICES.slice(0, t + 1);
+      const minP = Math.min(...visible) * 0.992;
+      const maxP = Math.max(...visible) * 1.008;
+      const span = Math.max(t, 1);
+      const x = (i) => p.left + (i / span) * (w - p.left - p.right);
+      const y = (v) => p.top + (1 - (v - minP) / (maxP - minP)) * (h - p.top - p.bottom);
+      return { x, y, minP, maxP, p, span };
+    }
+
+    function retScale(w, h, upto) {
+      const p = pad();
+      const slice = returns.slice(0, upto).map(r => r * 100);
+      const vals = slice.length ? slice : [0];
+      const minR = Math.min(-3.5, ...vals) * 1.25;
+      const maxR = Math.max(3.5, ...vals) * 1.25;
+      const count = Math.max(upto, 1);
+      const x = (i) => p.left + ((i + 0.5) / count) * (w - p.left - p.right);
+      const y = (v) => p.top + (1 - (v - minR) / (maxR - minR)) * (h - p.top - p.bottom);
+      return { x, y, y0: y(0), minR, maxR, p };
+    }
+
+    function drawGrid(ctx, w, h, p, yTicks) {
+      ctx.strokeStyle = '#232a38';
+      ctx.lineWidth = 1;
+      yTicks.forEach(v => {
+        const y = v;
+        ctx.beginPath();
+        ctx.moveTo(p.left, y);
+        ctx.lineTo(w - p.right, y);
+        ctx.stroke();
+      });
+    }
+
+    function drawPrice(t) {
+      const w = canvasPrice.width / (window.devicePixelRatio || 1);
+      const h = canvasPrice.height / (window.devicePixelRatio || 1);
+      const sc = priceScale(w, h, t);
+      const { x, y, p, minP, maxP } = sc;
+      ctxP.clearRect(0, 0, w, h);
+
+      const yTicks = [0, 1, 2, 3, 4].map(i => p.top + (i / 4) * (h - p.top - p.bottom));
+      drawGrid(ctxP, w, h, p, yTicks);
+
+      // Y 轴刻度（仅根据已出现的价格范围）
+      ctxP.fillStyle = '#6b7589';
+      ctxP.font = '10px IBM Plex Sans, sans-serif';
+      ctxP.textAlign = 'right';
+      for (let i = 0; i <= 4; i++) {
+        const val = maxP - (i / 4) * (maxP - minP);
+        ctxP.fillText('$' + val.toFixed(0), p.left - 6, yTicks[i] + 3);
+      }
+
+      // 已走过段（实线 + 渐变填充）—— 不绘制未来走势
+      if (t >= 0) {
+        const grad = ctxP.createLinearGradient(0, p.top, 0, h - p.bottom);
+        grad.addColorStop(0, 'rgba(77, 163, 255, 0.22)');
+        grad.addColorStop(1, 'rgba(77, 163, 255, 0.02)');
+        ctxP.beginPath();
+        ctxP.moveTo(x(0), y(PRICES[0]));
+        for (let i = 1; i <= t; i++) ctxP.lineTo(x(i), y(PRICES[i]));
+        ctxP.lineTo(x(t), h - p.bottom);
+        ctxP.lineTo(x(0), h - p.bottom);
+        ctxP.closePath();
+        ctxP.fillStyle = grad;
+        ctxP.fill();
+
+        ctxP.strokeStyle = '#4da3ff';
+        ctxP.lineWidth = 2.2;
+        ctxP.beginPath();
+        for (let i = 0; i <= t; i++) {
+          const px = x(i), py = y(PRICES[i]);
+          i === 0 ? ctxP.moveTo(px, py) : ctxP.lineTo(px, py);
+        }
+        ctxP.stroke();
+      }
+
+      // 当前日竖线
+      if (t >= 0) {
+        ctxP.strokeStyle = 'rgba(77, 163, 255, 0.35)';
+        ctxP.lineWidth = 1;
+        ctxP.setLineDash([3, 3]);
+        ctxP.beginPath();
+        ctxP.moveTo(x(t), p.top);
+        ctxP.lineTo(x(t), h - p.bottom);
+        ctxP.stroke();
+        ctxP.setLineDash([]);
+      }
+
+      // 昨天→今天高亮
+      if (t > 0) {
+        const pPrev = PRICES[t - 1], pCurr = PRICES[t];
+        ctxP.strokeStyle = '#f5a623';
+        ctxP.lineWidth = 2.5;
+        ctxP.beginPath();
+        ctxP.moveTo(x(t - 1), y(pPrev));
+        ctxP.lineTo(x(t), y(pCurr));
+        ctxP.stroke();
+
+        [[t - 1, pPrev, '#f5a623', 'Pₜ₋₁'], [t, pCurr, '#4da3ff', 'Pₜ']].forEach(([idx, val, col, lbl]) => {
+          const px = x(idx), py = y(val);
+          ctxP.fillStyle = col;
+          ctxP.beginPath();
+          ctxP.arc(px, py, 6, 0, Math.PI * 2);
+          ctxP.fill();
+          ctxP.strokeStyle = '#0c0f14';
+          ctxP.lineWidth = 2;
+          ctxP.stroke();
+          ctxP.fillStyle = '#c8d0e0';
+          ctxP.font = '10px IBM Plex Sans, sans-serif';
+          ctxP.textAlign = idx === t - 1 ? 'right' : 'left';
+          ctxP.fillText(lbl, px + (idx === t - 1 ? -10 : 10), py - 10);
+        });
+      }
+
+      // X 轴日期（只标注已走过的交易日）
+      ctxP.fillStyle = '#6b7589';
+      ctxP.font = '10px IBM Plex Sans, sans-serif';
+      ctxP.textAlign = 'center';
+      const step = Math.max(1, Math.ceil((t + 1) / 6));
+      for (let i = 0; i <= t; i += step) {
+        ctxP.fillText(fmtDate(dates[i]).slice(5), x(i), h - 10);
+      }
+      if (t > 0 && t % step !== 0) {
+        ctxP.fillText(fmtDate(dates[t]).slice(5), x(t), h - 10);
+      }
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x, y + h);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function drawReturns(t) {
+      const w = canvasReturn.width / (window.devicePixelRatio || 1);
+      const h = canvasReturn.height / (window.devicePixelRatio || 1);
+      const upto = Math.max(0, t);
+      const sc = retScale(w, h, upto);
+      ctxR.clearRect(0, 0, w, h);
+
+      const yTicks = [0, 1, 2, 3, 4].map(i => sc.p.top + (i / 4) * (h - sc.p.top - sc.p.bottom));
+      drawGrid(ctxR, w, h, sc.p, yTicks);
+
+      // 零轴
+      ctxR.strokeStyle = '#6b7589';
+      ctxR.lineWidth = 1;
+      ctxR.beginPath();
+      ctxR.moveTo(sc.p.left, sc.y0);
+      ctxR.lineTo(w - sc.p.right, sc.y0);
+      ctxR.stroke();
+      ctxR.fillStyle = '#6b7589';
+      ctxR.font = '10px IBM Plex Sans, sans-serif';
+      ctxR.textAlign = 'right';
+      ctxR.fillText('0%', sc.p.left - 6, sc.y0 + 3);
+
+      if (upto > 0) {
+        const barW = Math.max(2, Math.min(10, (w - sc.p.left - sc.p.right) / upto * 0.72));
+        for (let i = 0; i < upto; i++) {
+          const r = returns[i] * 100;
+          const cx = sc.x(i);
+          const yTop = sc.y(r);
+          const yBase = sc.y0;
+          const top = Math.min(yTop, yBase);
+          const bh = Math.max(Math.abs(yTop - yBase), 1.5);
+          const bx = cx - barW / 2;
+          const isLast = i === upto - 1;
+          ctxR.fillStyle = r >= 0
+            ? (isLast ? '#3dd9a8' : 'rgba(45, 212, 168, 0.75)')
+            : (isLast ? '#ff7b84' : 'rgba(240, 113, 120, 0.75)');
+          roundRect(ctxR, bx, top, barW, bh, 2);
+          ctxR.fill();
+        }
+      }
+
+      ctxR.textAlign = 'left';
+      ctxR.fillStyle = '#6b7589';
+      ctxR.fillText(upto > 0 ? `已计算 ${upto} 天` : '等待第 2 天…', sc.p.left, h - 10);
+    }
+
+    function updateUI(t) {
+      progress.style.width = ((t / (n - 1)) * 100) + '%';
+      dayBadge.textContent = `第 ${t + 1} / ${n} 个交易日`;
+
+      if (t === 0) {
+        formulaBox.innerHTML =
+          `<span class="hl">第 1 天</span>（${fmtDate(dates[0])}）\n` +
+          `没有「昨天」，无法算收益率\n` +
+          `<span class="result">r₁ = NaN</span>`;
+        statPrev.textContent = '—';
+        statCurr.textContent = PRICES[0].toFixed(2);
+        statRet.textContent = 'NaN';
+        statRet.className = '';
+        return;
+      }
+
+      const pPrev = PRICES[t - 1];
+      const pCurr = PRICES[t];
+      const rt = (pCurr - pPrev) / pPrev;
+      const sign = rt >= 0 ? '+' : '';
+      const pct = (rt * 100).toFixed(2);
+      const cls = rt >= 0 ? 'pos' : 'neg';
+
+      formulaBox.innerHTML =
+        `日期：<span class="hl">${fmtDate(dates[t])}</span>\n` +
+        `Pₜ₋₁ = ${pPrev.toFixed(2)}  →  Pₜ = ${pCurr.toFixed(2)}\n` +
+        `rₜ = (Pₜ − Pₜ₋₁) / Pₜ₋₁\n` +
+        `   = (${pCurr.toFixed(2)} − ${pPrev.toFixed(2)}) / ${pPrev.toFixed(2)}\n` +
+        `<span class="result ${cls}">= ${sign}${rt.toFixed(4)}（${sign}${pct}%）</span>`;
+
+      statPrev.textContent = pPrev.toFixed(2);
+      statCurr.textContent = pCurr.toFixed(2);
+      statRet.textContent = `${sign}${pct}%`;
+      statRet.className = cls;
+    }
+
+    function draw(t) {
+      frame = t;
+      drawPrice(t);
+      drawReturns(t);
+      updateUI(t);
+    }
+
+    function step() {
+      if (frame < n - 1) draw(frame + 1);
+      else pause();
+    }
+
+    function play() {
+      if (frame >= n - 1) draw(0);
+      playing = true;
+      document.getElementById('btnPlay').textContent = '▶ 播放中';
+      schedule();
+    }
+
+    function pause() {
+      playing = false;
+      clearTimeout(timer);
+      document.getElementById('btnPlay').textContent = '▶ 播放';
+    }
+
+    function schedule() {
+      clearTimeout(timer);
+      if (!playing) return;
+      const ms = 1100 - Number(document.getElementById('speed').value) * 90;
+      timer = setTimeout(() => {
+        if (frame < n - 1) { draw(frame + 1); schedule(); }
+        else pause();
+      }, ms);
+    }
+
+    function reset() { pause(); draw(0); }
+
+    document.getElementById('btnPlay').addEventListener('click', () => playing ? pause() : play());
+    document.getElementById('btnPause').addEventListener('click', pause);
+    document.getElementById('btnStep').addEventListener('click', () => { pause(); step(); });
+    document.getElementById('btnReset').addEventListener('click', reset);
+    document.getElementById('speed').addEventListener('input', () => { if (playing) schedule(); });
+
+    window.addEventListener('resize', resize);
+    resize();
+    draw(0);
+  </script>
+</body>
+</html>
