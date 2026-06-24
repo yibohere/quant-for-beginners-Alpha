@@ -12,6 +12,8 @@
 ## 快速开始
 
 ```bash
+git clone https://github.com/yibohere/quant-for-beginners-Alpha.git
+cd quant-for-beginners-Alpha
 pip install -r requirements.txt
 jupyter lab
 ```
